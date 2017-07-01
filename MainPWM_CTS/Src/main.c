@@ -190,12 +190,12 @@ int main(void)
 
       } else {
 
-        TIM1->CCR1 = 0;
-        TIM1->CCR2 = 0;
-        TIM1->CCR3 = 0;
-        TIM1->CCR4 = 0;
-        TIM8->CCR1 = 0;
-        TIM8->CCR2 = 0;
+        // TIM1->CCR1 = 0;
+        // TIM1->CCR2 = 0;
+        // TIM1->CCR3 = 0;
+        // TIM1->CCR4 = 0;
+        // TIM8->CCR1 = 0;
+        // TIM8->CCR2 = 0;
 
         if ((hallPosition <=6) && (hallPosition >=1)) {
 
@@ -210,32 +210,51 @@ int main(void)
             Phase_3_Low = BRIDGE_STEPS_FORWARD[hallPosition][5];
 
 
-            if (Phase_1_High)
-              TIM1->CCR1 = accelPedalValue_scaled;
-            if (Phase_1_Low)
-              TIM1->CCR2 = accelPedalValue_scaled;
+            TIM1->CCR1 = Phase_1_High *accelPedalValue_scaled;
+            TIM1->CCR2 = Phase_1_Low *accelPedalValue_scaled;
+            TIM1->CCR3 = Phase_2_High *accelPedalValue_scaled;
+            TIM1->CCR4 = Phase_2_Low *accelPedalValue_scaled;
+            TIM8->CCR1 = Phase_3_High *accelPedalValue_scaled;
+            TIM8->CCR2 = Phase_3_Low *accelPedalValue_scaled;
 
-            if (Phase_2_High)
-              TIM1->CCR3 = accelPedalValue_scaled;
-            if (Phase_2_Low)
-              TIM1->CCR4 = accelPedalValue_scaled;
-
-            if (Phase_3_High)
-              TIM8->CCR1 = accelPedalValue_scaled;
-            if (Phase_3_Low)
-              TIM8->CCR2 = accelPedalValue_scaled;
+            // if (Phase_1_High) {
+            //   TIM1->CCR1 = accelPedalValue_scaled;
+            //   TIM1->CCR2 = 0;
+            // }
+            // if (Phase_1_Low) {
+            //   TIM1->CCR1 = 0;
+            //   TIM1->CCR2 = accelPedalValue_scaled;
+            // }
+            //
+            // if (Phase_2_High) {
+            //   TIM1->CCR3 = accelPedalValue_scaled;
+            //   TIM1->CCR4 = 0;
+            // }
+            // if (Phase_2_Low) {
+            //   TIM1->CCR3 = 0;
+            //   TIM1->CCR4 = accelPedalValue_scaled;
+            // }
+            //
+            // if (Phase_3_High) {
+            //   TIM8->CCR1 = accelPedalValue_scaled;
+            //   TIM8->CCR2 = 0;
+            // }
+            // if (Phase_3_Low) {
+            //   TIM8->CCR1 = 0;
+            //   TIM8->CCR2 = accelPedalValue_scaled;
+            // }
 
           } else {
             //put in the reversing code
           }
 
-          HAL_TIM_PWM_Stop(&htim1, TIM_CHANNEL_1);
-          HAL_TIM_PWM_Stop(&htim1, TIM_CHANNEL_2);
-          HAL_TIM_PWM_Stop(&htim1, TIM_CHANNEL_3);
-          HAL_TIM_PWM_Stop(&htim1, TIM_CHANNEL_4);
-
-          HAL_TIM_PWM_Stop(&htim8, TIM_CHANNEL_1);
-          HAL_TIM_PWM_Stop(&htim8, TIM_CHANNEL_2);
+          // HAL_TIM_PWM_Stop(&htim1, TIM_CHANNEL_1);
+          // HAL_TIM_PWM_Stop(&htim1, TIM_CHANNEL_2);
+          // HAL_TIM_PWM_Stop(&htim1, TIM_CHANNEL_3);
+          // HAL_TIM_PWM_Stop(&htim1, TIM_CHANNEL_4);
+          //
+          // HAL_TIM_PWM_Stop(&htim8, TIM_CHANNEL_1);
+          // HAL_TIM_PWM_Stop(&htim8, TIM_CHANNEL_2);
 
           HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
           HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
@@ -273,9 +292,11 @@ int main(void)
       brakePedalVlaue_scaled = brakePedalVlaue_raw;
 
       accelPedalValue_raw = HAL_ADC_GetValue(&hadc1);
+      accelPedalValue_scaled = (int)(8399*((float)accelPedalValue_raw/4095));
 
-      //accelPedalValue_raw = HAL_ADC_GetValue(&hadc1);
-      //accelPedalValue_scaled = accelPedalValue_raw;
+      HAL_ADC_Start(&hadc1);
+      HAL_ADC_Start(&hadc2);
+
 
       //slew rate limiting for velocity (acceleration/deceleration control)
     }
@@ -353,7 +374,7 @@ static void MX_ADC1_Init(void)
   hadc1.Init.DataAlign = ADC_DATAALIGN_RIGHT;
   hadc1.Init.NbrOfConversion = 1;
   hadc1.Init.DMAContinuousRequests = DISABLE;
-  hadc1.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+  hadc1.Init.EOCSelection = ADC_EOC_SEQ_CONV;
   if (HAL_ADC_Init(&hadc1) != HAL_OK)
   {
     Error_Handler();
@@ -363,7 +384,7 @@ static void MX_ADC1_Init(void)
     */
   sConfig.Channel = ADC_CHANNEL_10;
   sConfig.Rank = 1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_144CYCLES;
+  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -389,7 +410,7 @@ static void MX_ADC2_Init(void)
   hadc2.Init.DataAlign = ADC_DATAALIGN_RIGHT;
   hadc2.Init.NbrOfConversion = 1;
   hadc2.Init.DMAContinuousRequests = DISABLE;
-  hadc2.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+  hadc2.Init.EOCSelection = ADC_EOC_SEQ_CONV;
   if (HAL_ADC_Init(&hadc2) != HAL_OK)
   {
     Error_Handler();
