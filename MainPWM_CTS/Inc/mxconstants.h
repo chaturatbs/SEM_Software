@@ -59,6 +59,12 @@
 #define LD5_GPIO_Port GPIOD
 #define LD6_Pin GPIO_PIN_15
 #define LD6_GPIO_Port GPIOD
+#define Hall1_Pin GPIO_PIN_1
+#define Hall1_GPIO_Port GPIOD
+#define Hall2_Pin GPIO_PIN_2
+#define Hall2_GPIO_Port GPIOD
+#define Hall3_Pin GPIO_PIN_3
+#define Hall3_GPIO_Port GPIOD
 #define SWO_Pin GPIO_PIN_3
 #define SWO_GPIO_Port GPIOB
 /* USER CODE BEGIN Private defines */

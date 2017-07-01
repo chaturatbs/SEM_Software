@@ -50,21 +50,23 @@ TIM_HandleTypeDef htim8;
 /* Private variables ---------------------------------------------------------*/
 bool Phase_1_High,Phase_1_Low, Phase_2_High, Phase_2_Low, Phase_3_High, Phase_3_Low, Hall_1, Hall_2, Hall_3;
 
-const uint8_t BRIDGE_STEPS_FORWARD[8][6] =   // Motor step
+const uint8_t BRIDGE_STEPS_FORWARD[8][6] =   // Motor step //A B C
 {
    { false,false   ,   false,false   ,  false,false },  // HighZ
-   { false,false   ,   false, true   ,  true, false },  // h 1,step 1
-   { false,true    ,   true ,false   ,  false,false },  // h 2, step 3
-   { false,true    ,   false,false   ,  true ,false },  // h 3, step 2
-   { true ,false   ,   false,false   ,  false,true  },  // h 4, step 5
-   { true ,false   ,   false,true    ,  false,false },  // h 5, step 6
-   { false,false   ,   true, false   ,  false,true  },  // h 6, step 4
+   { false,false   ,   false, true   ,  true, false },  // h 1, step 6
+ 	 { false,true    ,   true ,false   ,  false,false },  // h 2, step 4
+	 { false,true    ,   false,false   ,  true ,false },  // h 3, step 5
+	 { true ,false   ,   false,false   ,  false,true  },  // h 4, step 2
+	 { true ,false   ,   false,true    ,  false,false },  // h 5, step 1
+	 { false,false   ,   true, false   ,  false,true  },  // h 6, step 3
    { false,false   ,   false,false   ,  false,false },  // HighZ
 };
 
 uint32_t globalHeartbeat_50us, heartbeat_100us, heartbeat_1ms, heartbeat_10ms,led_state;
 uint8_t avgCurrent, currentSum, systemState, brakePedalVlaue_scaled, hallPosition;
 uint16_t brakePedalVlaue_raw, accelPedalValue_scaled, accelPedalValue_raw;
+uint8_t brakeMax_in, brakeMin_in, accelMax_in, accelMin_in;
+
 bool gearForward = true;
 bool deadManSwitch = true;
 /* USER CODE END PV */
@@ -102,6 +104,49 @@ void LED_stateMachine (void) {
         HAL_GPIO_TogglePin(GPIOD, LD4_Pin);
 				led_state = globalHeartbeat_50us;
 			}
+			if (Hall_1)
+				HAL_GPIO_WritePin(GPIOD, LD3_Pin, GPIO_PIN_SET);
+			else
+				HAL_GPIO_WritePin(GPIOD, LD3_Pin, GPIO_PIN_RESET);
+			
+			if (Hall_2)
+				HAL_GPIO_WritePin(GPIOD, LD5_Pin, GPIO_PIN_SET);
+			else
+				HAL_GPIO_WritePin(GPIOD, LD5_Pin, GPIO_PIN_RESET);
+			
+			if (Hall_3)
+				HAL_GPIO_WritePin(GPIOD, LD6_Pin, GPIO_PIN_SET);
+			else
+				HAL_GPIO_WritePin(GPIOD, LD6_Pin, GPIO_PIN_RESET);
+			
+			break;
+			
+		case 1: //hall effect problem
+      if ((globalHeartbeat_50us - led_state) > 10000) {
+        HAL_GPIO_WritePin(GPIOD, LD4_Pin,GPIO_PIN_RESET);
+				
+				//toggle hall effect LEDs
+				HAL_GPIO_TogglePin(GPIOD, LD3_Pin);
+				HAL_GPIO_TogglePin(GPIOD, LD5_Pin);
+				HAL_GPIO_TogglePin(GPIOD, LD6_Pin);
+				
+				led_state = globalHeartbeat_50us;
+			}
+			break;
+			
+		case 99: //hall effect problem
+      if ((globalHeartbeat_50us - led_state) > 5000) {
+        HAL_GPIO_WritePin(GPIOD, LD4_Pin,GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(GPIOD, LD3_Pin,GPIO_PIN_RESET);
+				HAL_GPIO_WritePin(GPIOD, LD6_Pin,GPIO_PIN_RESET);
+				
+				//toggle red LED
+				HAL_GPIO_TogglePin(GPIOD, LD5_Pin);
+				
+				led_state = globalHeartbeat_50us;
+			}
+			break;
+			
   }
 }
 
@@ -118,12 +163,14 @@ int main(void)
   heartbeat_10ms = 0;
   led_state = 0;
 	systemState = 0;
+	
+	accelPedalValue_scaled = 5000;
 
   //initialise mosfet states
   Phase_1_High = false; Phase_1_Low = false;
   Phase_2_High = false; Phase_2_Low = false;
   Phase_3_High = false; Phase_3_Low = false;
-  Hall_1 = true; Hall_2 = false; Hall_3 = false;
+  Hall_1 = true; Hall_2 = true; Hall_3 = false;
 
   /* USER CODE END 1 */
 
@@ -147,17 +194,19 @@ int main(void)
 
 	HAL_TIM_Base_Start_IT(&htim3);
 	HAL_TIM_PWM_Start(&htim3,TIM_CHANNEL_1);
-
+	
 	HAL_TIM_Base_Start_IT(&htim1);
-	HAL_TIM_PWM_Start(&htim8,TIM_CHANNEL_1);
-	HAL_TIM_PWM_Start(&htim8,TIM_CHANNEL_2);
-
-	HAL_Delay(450);
-
 	HAL_TIM_PWM_Start(&htim1,TIM_CHANNEL_1);
 	HAL_TIM_PWM_Start(&htim1,TIM_CHANNEL_2);
 	HAL_TIM_PWM_Start(&htim1,TIM_CHANNEL_3);
 	HAL_TIM_PWM_Start(&htim1,TIM_CHANNEL_4);
+	
+
+	HAL_TIM_PWM_Start(&htim8,TIM_CHANNEL_1);
+	HAL_TIM_PWM_Start(&htim8,TIM_CHANNEL_2);
+
+//	HAL_Delay(5000);
+//	Hall_1 = true; Hall_2 = true; Hall_3 = false;
 
   HAL_ADC_Start(&hadc1);
 	HAL_ADC_Start(&hadc2);
@@ -175,10 +224,15 @@ int main(void)
       //commutation
       //calculate speed and position for control
 
-      hallPosition = (Hall_3<<2) + (Hall_2<<1) + (Hall_1);
+//			Hall_1 = HAL_GPIO_ReadPin(GPIOD, Hall1_Pin);
+//			Hall_2 = HAL_GPIO_ReadPin(GPIOD, Hall2_Pin);
+//			Hall_3 = HAL_GPIO_ReadPin(GPIOD, Hall3_Pin);
+			
+      hallPosition = (Hall_1<<2) + (Hall_2<<1) + (Hall_3);
 
       if (!deadManSwitch) {
         //person is dead :O !!
+				systemState = 99;
         TIM1->CCR1 = 0;
         TIM1->CCR2 = 0;
         TIM1->CCR3 = 0;
@@ -187,8 +241,11 @@ int main(void)
         TIM8->CCR2 = 0;
 
       } else if (brakePedalVlaue_raw > 10) {
-
+				systemState = 0;
+				//braking
+				
       } else {
+				//systemState = 1;
 
         // TIM1->CCR1 = 0;
         // TIM1->CCR2 = 0;
@@ -198,8 +255,9 @@ int main(void)
         // TIM8->CCR2 = 0;
 
         if ((hallPosition <=6) && (hallPosition >=1)) {
-
-          if (gearForward){
+					systemState = 0;
+          
+					if (gearForward){
             Phase_1_High = BRIDGE_STEPS_FORWARD[hallPosition][0];
             Phase_1_Low = BRIDGE_STEPS_FORWARD[hallPosition][1];
 
@@ -256,6 +314,8 @@ int main(void)
           // HAL_TIM_PWM_Stop(&htim8, TIM_CHANNEL_1);
           // HAL_TIM_PWM_Stop(&htim8, TIM_CHANNEL_2);
 
+					//HAL_TIM_Base_Start_IT(&htim1);
+					
           HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
           HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
           HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_3);
@@ -263,9 +323,11 @@ int main(void)
 
           HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
           HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_2);
-
+					
         } else {
           //something is wrong with the hall sensors.. STOPPP
+					
+					systemState = 1;
           HAL_TIM_PWM_Stop(&htim1, TIM_CHANNEL_1);
           HAL_TIM_PWM_Stop(&htim1, TIM_CHANNEL_2);
           HAL_TIM_PWM_Stop(&htim1, TIM_CHANNEL_3);
@@ -462,12 +524,7 @@ static void MX_TIM1_Init(void)
     Error_Handler();
   }
 
-  if (HAL_TIM_OC_Init(&htim1) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_OC1;
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_ENABLE;
   if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK)
   {
@@ -504,14 +561,12 @@ static void MX_TIM1_Init(void)
     Error_Handler();
   }
 
-  sConfigOC.OCMode = TIM_OCMODE_TIMING;
-  sConfigOC.Pulse = 1;
-  if (HAL_TIM_OC_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_3) != HAL_OK)
+  sConfigOC.Pulse = 0;
+  if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_3) != HAL_OK)
   {
     Error_Handler();
   }
 
-  sConfigOC.OCMode = TIM_OCMODE_PWM1;
   sConfigOC.Pulse = 8300;
   if (HAL_TIM_PWM_ConfigChannel(&htim1, &sConfigOC, TIM_CHANNEL_4) != HAL_OK)
   {
@@ -593,7 +648,7 @@ static void MX_TIM8_Init(void)
     Error_Handler();
   }
 
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_OC1;
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_UPDATE;
   sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
   if (HAL_TIMEx_MasterConfigSynchronization(&htim8, &sMasterConfig) != HAL_OK)
   {
@@ -666,9 +721,9 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PD1 PD2 PD3 */
-  GPIO_InitStruct.Pin = GPIO_PIN_1|GPIO_PIN_2|GPIO_PIN_3;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  /*Configure GPIO pins : Hall1_Pin Hall2_Pin Hall3_Pin */
+  GPIO_InitStruct.Pin = Hall1_Pin|Hall2_Pin|Hall3_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
