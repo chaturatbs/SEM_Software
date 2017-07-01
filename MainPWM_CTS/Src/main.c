@@ -63,7 +63,8 @@ const uint8_t BRIDGE_STEPS_FORWARD[8][6] =   // Motor step
 };
 
 uint32_t globalHeartbeat_50us, heartbeat_100us, heartbeat_1ms, heartbeat_10ms,led_state;
-uint8_t avgCurrent, currentSum, systemState, brakePedalVlaue_scaled,brakePedalVlaue_raw, accelPedalValue_scaled, accelPedalValue_raw, hallPosition;
+uint8_t avgCurrent, currentSum, systemState, brakePedalVlaue_scaled, hallPosition;
+uint16_t brakePedalVlaue_raw, accelPedalValue_scaled, accelPedalValue_raw;
 bool gearForward = true;
 bool deadManSwitch = true;
 /* USER CODE END PV */
@@ -90,7 +91,8 @@ void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
   globalHeartbeat_50us++;
-  HAL_GPIO_TogglePin(GPIOD, LD3_Pin);
+  //HAL_GPIO_TogglePin(GPIOD, LD3_Pin);
+
 }
 
 void LED_stateMachine (void) {
@@ -157,6 +159,9 @@ int main(void)
 	HAL_TIM_PWM_Start(&htim1,TIM_CHANNEL_3);
 	HAL_TIM_PWM_Start(&htim1,TIM_CHANNEL_4);
 
+  HAL_ADC_Start(&hadc1);
+	HAL_ADC_Start(&hadc2);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -165,11 +170,12 @@ int main(void)
   {
 
     if ((globalHeartbeat_50us - heartbeat_100us) > 2) {
+      heartbeat_100us = globalHeartbeat_50us;
       //100us stuff
       //commutation
       //calculate speed and position for control
 
-      hallPosition = Hall_3<<2 + Hall_2<<1 + Hall_1;
+      hallPosition = (Hall_3<<2) + (Hall_2<<1) + (Hall_1);
 
       if (!deadManSwitch) {
         //person is dead :O !!
@@ -253,19 +259,24 @@ int main(void)
     }
 
     if ((globalHeartbeat_50us -  heartbeat_1ms) > 20) {
+      heartbeat_1ms = globalHeartbeat_50us;
       //1ms stuff
       //speed regulator
       //over current protection
     }
 
     if ((globalHeartbeat_50us -  heartbeat_10ms) > 200) {
+      heartbeat_10ms = globalHeartbeat_50us;
       //10ms stuff
       //get pedal values
       brakePedalVlaue_raw = 0;
-      brakePedalVlaue_raw = brakePedalVlaue_raw;
+      brakePedalVlaue_scaled = brakePedalVlaue_raw;
 
       accelPedalValue_raw = HAL_ADC_GetValue(&hadc1);
-      accelPedalValue_scaled = accelPedalValue_raw;
+
+      //accelPedalValue_raw = HAL_ADC_GetValue(&hadc1);
+      //accelPedalValue_scaled = accelPedalValue_raw;
+
       //slew rate limiting for velocity (acceleration/deceleration control)
     }
 
@@ -352,7 +363,7 @@ static void MX_ADC1_Init(void)
     */
   sConfig.Channel = ADC_CHANNEL_10;
   sConfig.Rank = 1;
-  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
+  sConfig.SamplingTime = ADC_SAMPLETIME_144CYCLES;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
   {
     Error_Handler();
