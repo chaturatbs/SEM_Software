@@ -168,6 +168,88 @@ int main(void)
       //100us stuff
       //commutation
       //calculate speed and position for control
+
+      hallPosition = Hall_3<<2 + Hall_2<<1 + Hall_1;
+
+      if (!deadManSwitch) {
+        //person is dead :O !!
+        TIM1->CCR1 = 0;
+        TIM1->CCR2 = 0;
+        TIM1->CCR3 = 0;
+        TIM1->CCR4 = 0;
+        TIM8->CCR1 = 0;
+        TIM8->CCR2 = 0;
+
+      } else if (brakePedalVlaue_raw > 10) {
+
+      } else {
+
+        TIM1->CCR1 = 0;
+        TIM1->CCR2 = 0;
+        TIM1->CCR3 = 0;
+        TIM1->CCR4 = 0;
+        TIM8->CCR1 = 0;
+        TIM8->CCR2 = 0;
+
+        if ((hallPosition <=6) && (hallPosition >=1)) {
+
+          if (gearForward){
+            Phase_1_High = BRIDGE_STEPS_FORWARD[hallPosition][0];
+            Phase_1_Low = BRIDGE_STEPS_FORWARD[hallPosition][1];
+
+            Phase_2_High = BRIDGE_STEPS_FORWARD[hallPosition][2];
+            Phase_2_Low = BRIDGE_STEPS_FORWARD[hallPosition][3];
+
+            Phase_3_High = BRIDGE_STEPS_FORWARD[hallPosition][4];
+            Phase_3_Low = BRIDGE_STEPS_FORWARD[hallPosition][5];
+
+
+            if (Phase_1_High)
+              TIM1->CCR1 = accelPedalValue_scaled;
+            if (Phase_1_Low)
+              TIM1->CCR2 = accelPedalValue_scaled;
+
+            if (Phase_2_High)
+              TIM1->CCR3 = accelPedalValue_scaled;
+            if (Phase_2_Low)
+              TIM1->CCR4 = accelPedalValue_scaled;
+
+            if (Phase_3_High)
+              TIM8->CCR1 = accelPedalValue_scaled;
+            if (Phase_3_Low)
+              TIM8->CCR2 = accelPedalValue_scaled;
+
+          } else {
+            //put in the reversing code
+          }
+
+          HAL_TIM_PWM_Stop(&htim1, TIM_CHANNEL_1);
+          HAL_TIM_PWM_Stop(&htim1, TIM_CHANNEL_2);
+          HAL_TIM_PWM_Stop(&htim1, TIM_CHANNEL_3);
+          HAL_TIM_PWM_Stop(&htim1, TIM_CHANNEL_4);
+
+          HAL_TIM_PWM_Stop(&htim8, TIM_CHANNEL_1);
+          HAL_TIM_PWM_Stop(&htim8, TIM_CHANNEL_2);
+
+          HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
+          HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
+          HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_3);
+          HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
+
+          HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
+          HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_2);
+
+        } else {
+          //something is wrong with the hall sensors.. STOPPP
+          HAL_TIM_PWM_Stop(&htim1, TIM_CHANNEL_1);
+          HAL_TIM_PWM_Stop(&htim1, TIM_CHANNEL_2);
+          HAL_TIM_PWM_Stop(&htim1, TIM_CHANNEL_3);
+          HAL_TIM_PWM_Stop(&htim1, TIM_CHANNEL_4);
+
+          HAL_TIM_PWM_Stop(&htim8, TIM_CHANNEL_1);
+          HAL_TIM_PWM_Stop(&htim8, TIM_CHANNEL_2);
+        }
+      }
     }
 
     if ((globalHeartbeat_50us -  heartbeat_1ms) > 20) {
@@ -179,9 +261,15 @@ int main(void)
     if ((globalHeartbeat_50us -  heartbeat_10ms) > 200) {
       //10ms stuff
       //get pedal values
+      brakePedalVlaue_raw = 0;
+      brakePedalVlaue_raw = brakePedalVlaue_raw;
+
+      accelPedalValue_raw = HAL_ADC_GetValue(&hadc1);
+      accelPedalValue_scaled = accelPedalValue_raw;
       //slew rate limiting for velocity (acceleration/deceleration control)
     }
 
+    LED_stateMachine();
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
