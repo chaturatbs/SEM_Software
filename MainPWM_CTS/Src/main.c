@@ -40,6 +40,7 @@
 
 /* Private variables ---------------------------------------------------------*/
 ADC_HandleTypeDef hadc1;
+ADC_HandleTypeDef hadc2;
 
 TIM_HandleTypeDef htim1;
 TIM_HandleTypeDef htim3;
@@ -75,9 +76,10 @@ static void MX_TIM1_Init(void);
 static void MX_TIM3_Init(void);
 static void MX_TIM8_Init(void);
 static void MX_ADC1_Init(void);
+static void MX_ADC2_Init(void);
 
 void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
-                
+
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
@@ -137,6 +139,7 @@ int main(void)
   MX_TIM3_Init();
   MX_TIM8_Init();
   MX_ADC1_Init();
+  MX_ADC2_Init();
 
   /* USER CODE BEGIN 2 */
 
@@ -160,10 +163,29 @@ int main(void)
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+
+    if ((globalHeartbeat_50us - heartbeat_100us) > 2) {
+      //100us stuff
+      //commutation
+      //calculate speed and position for control
+    }
+
+    if ((globalHeartbeat_50us -  heartbeat_1ms) > 20) {
+      //1ms stuff
+      //speed regulator
+      //over current protection
+    }
+
+    if ((globalHeartbeat_50us -  heartbeat_10ms) > 200) {
+      //10ms stuff
+      //get pedal values
+      //slew rate limiting for velocity (acceleration/deceleration control)
+    }
+
   /* USER CODE END WHILE */
 
   /* USER CODE BEGIN 3 */
-  I am writing something here
+
   }
   /* USER CODE END 3 */
 
@@ -220,7 +242,7 @@ static void MX_ADC1_Init(void)
 
   ADC_ChannelConfTypeDef sConfig;
 
-    /**Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion) 
+    /**Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
     */
   hadc1.Instance = ADC1;
   hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV2;
@@ -238,12 +260,48 @@ static void MX_ADC1_Init(void)
     Error_Handler();
   }
 
-    /**Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time. 
+    /**Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
     */
   sConfig.Channel = ADC_CHANNEL_10;
   sConfig.Rank = 1;
   sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
   if (HAL_ADC_ConfigChannel(&hadc1, &sConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+}
+
+/* ADC2 init function */
+static void MX_ADC2_Init(void)
+{
+
+  ADC_ChannelConfTypeDef sConfig;
+
+    /**Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
+    */
+  hadc2.Instance = ADC2;
+  hadc2.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV2;
+  hadc2.Init.Resolution = ADC_RESOLUTION_12B;
+  hadc2.Init.ScanConvMode = DISABLE;
+  hadc2.Init.ContinuousConvMode = DISABLE;
+  hadc2.Init.DiscontinuousConvMode = DISABLE;
+  hadc2.Init.ExternalTrigConvEdge = ADC_EXTERNALTRIGCONVEDGE_NONE;
+  hadc2.Init.DataAlign = ADC_DATAALIGN_RIGHT;
+  hadc2.Init.NbrOfConversion = 1;
+  hadc2.Init.DMAContinuousRequests = DISABLE;
+  hadc2.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
+  if (HAL_ADC_Init(&hadc2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+    /**Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+    */
+  sConfig.Channel = ADC_CHANNEL_11;
+  sConfig.Rank = 1;
+  sConfig.SamplingTime = ADC_SAMPLETIME_3CYCLES;
+  if (HAL_ADC_ConfigChannel(&hadc2, &sConfig) != HAL_OK)
   {
     Error_Handler();
   }
@@ -453,9 +511,9 @@ static void MX_TIM8_Init(void)
 
 }
 
-/** Configure pins as 
-        * Analog 
-        * Input 
+/** Configure pins as
+        * Analog
+        * Input
         * Output
         * EVENT_OUT
         * EXTI
@@ -512,7 +570,7 @@ void Error_Handler(void)
   while(1)
   {
   }
-  /* USER CODE END Error_Handler */ 
+  /* USER CODE END Error_Handler */
 }
 
 #ifdef USE_FULL_ASSERT
@@ -537,10 +595,10 @@ void assert_failed(uint8_t* file, uint32_t line)
 
 /**
   * @}
-  */ 
+  */
 
 /**
   * @}
-*/ 
+*/
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
