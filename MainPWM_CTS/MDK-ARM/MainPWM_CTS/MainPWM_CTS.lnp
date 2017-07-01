@@ -1,0 +1,26 @@
+--cpu Cortex-M4.fp
+"mainpwm_cts\system_stm32f4xx.o"
+"mainpwm_cts\startup_stm32f407xx.o"
+"mainpwm_cts\stm32f4xx_hal_dma_ex.o"
+"mainpwm_cts\stm32f4xx_hal_gpio.o"
+"mainpwm_cts\stm32f4xx_hal_flash_ex.o"
+"mainpwm_cts\stm32f4xx_hal_pwr_ex.o"
+"mainpwm_cts\stm32f4xx_hal_tim.o"
+"mainpwm_cts\stm32f4xx_hal_dma.o"
+"mainpwm_cts\stm32f4xx_hal_pwr.o"
+"mainpwm_cts\stm32f4xx_hal_tim_ex.o"
+"mainpwm_cts\stm32f4xx_hal_flash_ramfunc.o"
+"mainpwm_cts\stm32f4xx_hal.o"
+"mainpwm_cts\stm32f4xx_hal_rcc_ex.o"
+"mainpwm_cts\stm32f4xx_hal_rcc.o"
+"mainpwm_cts\stm32f4xx_hal_flash.o"
+"mainpwm_cts\stm32f4xx_hal_cortex.o"
+"mainpwm_cts\stm32f4xx_hal_adc.o"
+"mainpwm_cts\stm32f4xx_hal_adc_ex.o"
+"mainpwm_cts\stm32f4xx_hal_msp.o"
+"mainpwm_cts\main.o"
+"mainpwm_cts\stm32f4xx_it.o"
+--library_type=microlib --strict --scatter "MainPWM_CTS\MainPWM_CTS.sct"
+--diag_suppress=L6329 --summary_stderr --info summarysizes --map --xref --callgraph --symbols
+--info sizes --info totals --info unused --info veneers
+--list "MainPWM_CTS.map" -o MainPWM_CTS\MainPWM_CTS.axf
