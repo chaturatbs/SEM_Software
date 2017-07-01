@@ -80,7 +80,7 @@ static void MX_ADC1_Init(void);
 static void MX_ADC2_Init(void);
 
 void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
-
+                
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
@@ -148,7 +148,7 @@ int main(void)
 	HAL_TIM_Base_Start_IT(&htim3);
 	HAL_TIM_PWM_Start(&htim3,TIM_CHANNEL_1);
 
-	//HAL_TIM_Base_Start_IT(&htim1);
+	HAL_TIM_Base_Start_IT(&htim1);
 	HAL_TIM_PWM_Start(&htim8,TIM_CHANNEL_1);
 	HAL_TIM_PWM_Start(&htim8,TIM_CHANNEL_2);
 
@@ -293,6 +293,9 @@ int main(void)
 
       accelPedalValue_raw = HAL_ADC_GetValue(&hadc1);
       accelPedalValue_scaled = (int)(8399*((float)accelPedalValue_raw/4095));
+			if (accelPedalValue_scaled<30)
+				accelPedalValue_scaled = 0;				
+				
 
       HAL_ADC_Start(&hadc1);
       HAL_ADC_Start(&hadc2);
@@ -362,7 +365,7 @@ static void MX_ADC1_Init(void)
 
   ADC_ChannelConfTypeDef sConfig;
 
-    /**Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
+    /**Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion) 
     */
   hadc1.Instance = ADC1;
   hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV2;
@@ -380,7 +383,7 @@ static void MX_ADC1_Init(void)
     Error_Handler();
   }
 
-    /**Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+    /**Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time. 
     */
   sConfig.Channel = ADC_CHANNEL_10;
   sConfig.Rank = 1;
@@ -398,7 +401,7 @@ static void MX_ADC2_Init(void)
 
   ADC_ChannelConfTypeDef sConfig;
 
-    /**Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
+    /**Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion) 
     */
   hadc2.Instance = ADC2;
   hadc2.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV2;
@@ -416,7 +419,7 @@ static void MX_ADC2_Init(void)
     Error_Handler();
   }
 
-    /**Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
+    /**Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time. 
     */
   sConfig.Channel = ADC_CHANNEL_11;
   sConfig.Rank = 1;
@@ -464,8 +467,8 @@ static void MX_TIM1_Init(void)
     Error_Handler();
   }
 
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_OC1;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_ENABLE;
   if (HAL_TIMEx_MasterConfigSynchronization(&htim1, &sMasterConfig) != HAL_OK)
   {
     Error_Handler();
@@ -590,8 +593,8 @@ static void MX_TIM8_Init(void)
     Error_Handler();
   }
 
-  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
-  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_ENABLE;
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_OC1;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
   if (HAL_TIMEx_MasterConfigSynchronization(&htim8, &sMasterConfig) != HAL_OK)
   {
     Error_Handler();
@@ -631,9 +634,9 @@ static void MX_TIM8_Init(void)
 
 }
 
-/** Configure pins as
-        * Analog
-        * Input
+/** Configure pins as 
+        * Analog 
+        * Input 
         * Output
         * EVENT_OUT
         * EXTI
@@ -690,7 +693,7 @@ void Error_Handler(void)
   while(1)
   {
   }
-  /* USER CODE END Error_Handler */
+  /* USER CODE END Error_Handler */ 
 }
 
 #ifdef USE_FULL_ASSERT
@@ -715,10 +718,10 @@ void assert_failed(uint8_t* file, uint32_t line)
 
 /**
   * @}
-  */
+  */ 
 
 /**
   * @}
-*/
+*/ 
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/
