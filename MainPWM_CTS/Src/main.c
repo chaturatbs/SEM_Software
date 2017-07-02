@@ -62,10 +62,25 @@ const uint8_t BRIDGE_STEPS_FORWARD[8][6] =   // Motor step //A B C
    { false,false   ,   false,false   ,  false,false },  // HighZ
 };
 
+const uint8_t BRIDGE_STEPS_REVERSE[8][6] =   // Motor step //A B C
+{
+   { false,false   ,   false,false   ,  false,false },  // HighZ
+
+   { false,false   ,   true , false  ,  false, true },  // h 1, step 6
+   { true ,false   ,   false,true    ,  false,false },  // h 2, step 4
+   { true ,false   ,   false,false   ,  false,true  },  // h 3, step 5
+   { false,true    ,   false,false   ,  true ,false },  // h 4, step 2
+   { false,true    ,   true ,false   ,  false,false },  // h 5, step 1
+   { false,false   ,   false, true   ,  true ,false },  // h 6, step 3
+
+   { false,false   ,   false,false   ,  false,false },  // HighZ
+
+};
+
+
 uint32_t globalHeartbeat_50us, heartbeat_100us, heartbeat_1ms, heartbeat_10ms,led_state;
-uint8_t avgCurrent, currentSum, systemState, brakePedalVlaue_scaled, hallPosition;
-uint16_t brakePedalVlaue_raw, accelPedalValue_scaled, accelPedalValue_raw;
-uint8_t brakeMax_in, brakeMin_in, accelMax_in, accelMin_in;
+uint8_t avgCurrent, currentSum, systemState, hallPosition;
+uint16_t brakePedalVlaue_raw, brakePedalVlaue_scaled, accelPedalValue_scaled, accelPedalValue_raw, brakeMax_in, brakeMin_in, brakeRange, accelMax_in, accelMin_in, accelRange;
 
 bool gearForward = true;
 bool deadManSwitch = true;
@@ -82,7 +97,7 @@ static void MX_ADC1_Init(void);
 static void MX_ADC2_Init(void);
 
 void HAL_TIM_MspPostInit(TIM_HandleTypeDef *htim);
-                
+
 
 /* USER CODE BEGIN PFP */
 /* Private function prototypes -----------------------------------------------*/
@@ -108,45 +123,45 @@ void LED_stateMachine (void) {
 				HAL_GPIO_WritePin(GPIOD, LD3_Pin, GPIO_PIN_SET);
 			else
 				HAL_GPIO_WritePin(GPIOD, LD3_Pin, GPIO_PIN_RESET);
-			
+
 			if (Hall_2)
 				HAL_GPIO_WritePin(GPIOD, LD5_Pin, GPIO_PIN_SET);
 			else
 				HAL_GPIO_WritePin(GPIOD, LD5_Pin, GPIO_PIN_RESET);
-			
+
 			if (Hall_3)
 				HAL_GPIO_WritePin(GPIOD, LD6_Pin, GPIO_PIN_SET);
 			else
 				HAL_GPIO_WritePin(GPIOD, LD6_Pin, GPIO_PIN_RESET);
-			
+
 			break;
-			
+
 		case 1: //hall effect problem
       if ((globalHeartbeat_50us - led_state) > 10000) {
         HAL_GPIO_WritePin(GPIOD, LD4_Pin,GPIO_PIN_RESET);
-				
+
 				//toggle hall effect LEDs
 				HAL_GPIO_TogglePin(GPIOD, LD3_Pin);
 				HAL_GPIO_TogglePin(GPIOD, LD5_Pin);
 				HAL_GPIO_TogglePin(GPIOD, LD6_Pin);
-				
+
 				led_state = globalHeartbeat_50us;
 			}
 			break;
-			
+
 		case 99: //hall effect problem
       if ((globalHeartbeat_50us - led_state) > 5000) {
         HAL_GPIO_WritePin(GPIOD, LD4_Pin,GPIO_PIN_RESET);
 				HAL_GPIO_WritePin(GPIOD, LD3_Pin,GPIO_PIN_RESET);
 				HAL_GPIO_WritePin(GPIOD, LD6_Pin,GPIO_PIN_RESET);
-				
+
 				//toggle red LED
 				HAL_GPIO_TogglePin(GPIOD, LD5_Pin);
-				
+
 				led_state = globalHeartbeat_50us;
 			}
 			break;
-			
+
   }
 }
 
@@ -163,7 +178,7 @@ int main(void)
   heartbeat_10ms = 0;
   led_state = 0;
 	systemState = 0;
-	
+
 	accelPedalValue_scaled = 5000;
 
   //initialise mosfet states
@@ -171,6 +186,14 @@ int main(void)
   Phase_2_High = false; Phase_2_Low = false;
   Phase_3_High = false; Phase_3_Low = false;
   Hall_1 = true; Hall_2 = true; Hall_3 = false;
+
+  brakeMin_in = 0;
+  brakeMax_in = 4095;
+  brakeRange = (brakeMax_in - brakeMin_in);
+
+  accelMin_in = 3200;
+  accelMax_in = 4095;
+  accelRange = (accelMax_in - accelMin_in);
 
   /* USER CODE END 1 */
 
@@ -194,13 +217,13 @@ int main(void)
 
 	HAL_TIM_Base_Start_IT(&htim3);
 	HAL_TIM_PWM_Start(&htim3,TIM_CHANNEL_1);
-	
+
 	HAL_TIM_Base_Start_IT(&htim1);
 	HAL_TIM_PWM_Start(&htim1,TIM_CHANNEL_1);
 	HAL_TIM_PWM_Start(&htim1,TIM_CHANNEL_2);
 	HAL_TIM_PWM_Start(&htim1,TIM_CHANNEL_3);
 	HAL_TIM_PWM_Start(&htim1,TIM_CHANNEL_4);
-	
+
 
 	HAL_TIM_PWM_Start(&htim8,TIM_CHANNEL_1);
 	HAL_TIM_PWM_Start(&htim8,TIM_CHANNEL_2);
@@ -227,7 +250,7 @@ int main(void)
 //			Hall_1 = HAL_GPIO_ReadPin(GPIOD, Hall1_Pin);
 //			Hall_2 = HAL_GPIO_ReadPin(GPIOD, Hall2_Pin);
 //			Hall_3 = HAL_GPIO_ReadPin(GPIOD, Hall3_Pin);
-			
+
       hallPosition = (Hall_1<<2) + (Hall_2<<1) + (Hall_3);
 
       if (!deadManSwitch) {
@@ -240,10 +263,24 @@ int main(void)
         TIM8->CCR1 = 0;
         TIM8->CCR2 = 0;
 
-      } else if (brakePedalVlaue_raw > 10) {
+      } else if (brakePedalVlaue_scaled > 30) {
 				systemState = 0;
 				//braking
-				
+        TIM1->CCR1 = 0;
+        TIM1->CCR2 = brakePedalVlaue_scaled;
+        TIM1->CCR3 = 0;
+        TIM1->CCR4 = brakePedalVlaue_scaled;
+        TIM8->CCR1 = 0;
+        TIM8->CCR2 = brakePedalVlaue_scaled;
+
+//        HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
+//        HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
+//        HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_3);
+//        HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_4);
+
+//        HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
+//        HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_2);
+
       } else {
 				//systemState = 1;
 
@@ -256,8 +293,18 @@ int main(void)
 
         if ((hallPosition <=6) && (hallPosition >=1)) {
 					systemState = 0;
-          
-					if (gearForward){
+
+					if (!gearForward){
+						Phase_1_High = BRIDGE_STEPS_REVERSE[hallPosition][0];
+            Phase_1_Low = BRIDGE_STEPS_REVERSE[hallPosition][1];
+
+            Phase_2_High = BRIDGE_STEPS_REVERSE[hallPosition][2];
+            Phase_2_Low = BRIDGE_STEPS_REVERSE[hallPosition][3];
+
+            Phase_3_High = BRIDGE_STEPS_REVERSE[hallPosition][4];
+            Phase_3_Low = BRIDGE_STEPS_REVERSE[hallPosition][5];
+
+          } else {
             Phase_1_High = BRIDGE_STEPS_FORWARD[hallPosition][0];
             Phase_1_Low = BRIDGE_STEPS_FORWARD[hallPosition][1];
 
@@ -266,45 +313,41 @@ int main(void)
 
             Phase_3_High = BRIDGE_STEPS_FORWARD[hallPosition][4];
             Phase_3_Low = BRIDGE_STEPS_FORWARD[hallPosition][5];
-
-
-            TIM1->CCR1 = Phase_1_High *accelPedalValue_scaled;
-            TIM1->CCR2 = Phase_1_Low *accelPedalValue_scaled;
-            TIM1->CCR3 = Phase_2_High *accelPedalValue_scaled;
-            TIM1->CCR4 = Phase_2_Low *accelPedalValue_scaled;
-            TIM8->CCR1 = Phase_3_High *accelPedalValue_scaled;
-            TIM8->CCR2 = Phase_3_Low *accelPedalValue_scaled;
-
-            // if (Phase_1_High) {
-            //   TIM1->CCR1 = accelPedalValue_scaled;
-            //   TIM1->CCR2 = 0;
-            // }
-            // if (Phase_1_Low) {
-            //   TIM1->CCR1 = 0;
-            //   TIM1->CCR2 = accelPedalValue_scaled;
-            // }
-            //
-            // if (Phase_2_High) {
-            //   TIM1->CCR3 = accelPedalValue_scaled;
-            //   TIM1->CCR4 = 0;
-            // }
-            // if (Phase_2_Low) {
-            //   TIM1->CCR3 = 0;
-            //   TIM1->CCR4 = accelPedalValue_scaled;
-            // }
-            //
-            // if (Phase_3_High) {
-            //   TIM8->CCR1 = accelPedalValue_scaled;
-            //   TIM8->CCR2 = 0;
-            // }
-            // if (Phase_3_Low) {
-            //   TIM8->CCR1 = 0;
-            //   TIM8->CCR2 = accelPedalValue_scaled;
-            // }
-
-          } else {
-            //put in the reversing code
           }
+
+          TIM1->CCR1 = Phase_1_High *accelPedalValue_scaled;
+          TIM1->CCR2 = Phase_1_Low *accelPedalValue_scaled;
+          TIM1->CCR3 = Phase_2_High *accelPedalValue_scaled;
+          TIM1->CCR4 = Phase_2_Low *accelPedalValue_scaled;
+          TIM8->CCR1 = Phase_3_High *accelPedalValue_scaled;
+          TIM8->CCR2 = Phase_3_Low *accelPedalValue_scaled;
+
+          // if (Phase_1_High) {
+          //   TIM1->CCR1 = accelPedalValue_scaled;
+          //   TIM1->CCR2 = 0;
+          // }
+          // if (Phase_1_Low) {
+          //   TIM1->CCR1 = 0;
+          //   TIM1->CCR2 = accelPedalValue_scaled;
+          // }
+          //
+          // if (Phase_2_High) {
+          //   TIM1->CCR3 = accelPedalValue_scaled;
+          //   TIM1->CCR4 = 0;
+          // }
+          // if (Phase_2_Low) {
+          //   TIM1->CCR3 = 0;
+          //   TIM1->CCR4 = accelPedalValue_scaled;
+          // }
+          //
+          // if (Phase_3_High) {
+          //   TIM8->CCR1 = accelPedalValue_scaled;
+          //   TIM8->CCR2 = 0;
+          // }
+          // if (Phase_3_Low) {
+          //   TIM8->CCR1 = 0;
+          //   TIM8->CCR2 = accelPedalValue_scaled;
+          // }
 
           // HAL_TIM_PWM_Stop(&htim1, TIM_CHANNEL_1);
           // HAL_TIM_PWM_Stop(&htim1, TIM_CHANNEL_2);
@@ -315,7 +358,7 @@ int main(void)
           // HAL_TIM_PWM_Stop(&htim8, TIM_CHANNEL_2);
 
 					//HAL_TIM_Base_Start_IT(&htim1);
-					
+
           HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_1);
           HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_2);
           HAL_TIM_PWM_Start(&htim1, TIM_CHANNEL_3);
@@ -323,10 +366,10 @@ int main(void)
 
           HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_1);
           HAL_TIM_PWM_Start(&htim8, TIM_CHANNEL_2);
-					
+
         } else {
           //something is wrong with the hall sensors.. STOPPP
-					
+
 					systemState = 1;
           HAL_TIM_PWM_Stop(&htim1, TIM_CHANNEL_1);
           HAL_TIM_PWM_Stop(&htim1, TIM_CHANNEL_2);
@@ -350,17 +393,19 @@ int main(void)
       heartbeat_10ms = globalHeartbeat_50us;
       //10ms stuff
       //get pedal values
-      brakePedalVlaue_raw = 0;
-      brakePedalVlaue_scaled = brakePedalVlaue_raw;
+      brakePedalVlaue_raw = HAL_ADC_GetValue(&hadc2);
+      brakePedalVlaue_scaled = (int)(8399*((float)(brakePedalVlaue_raw - brakeMin_in)/brakeRange));
 
       accelPedalValue_raw = HAL_ADC_GetValue(&hadc1);
-      accelPedalValue_scaled = (int)(8399*((float)accelPedalValue_raw/4095));
-			if (accelPedalValue_scaled<30)
-				accelPedalValue_scaled = 0;				
-				
+      accelPedalValue_scaled = (int)(8399*((float)(accelPedalValue_raw-accelMin_in)/accelRange));
+      if (accelPedalValue_scaled<30)
+				accelPedalValue_scaled = 0;
+
+			//gearForward = (bool)HAL_GPIO_ReadPin(Fw_Rev_switch_GPIO_Port, Fw_Rev_switch_Pin);
 
       HAL_ADC_Start(&hadc1);
       HAL_ADC_Start(&hadc2);
+
 
 
       //slew rate limiting for velocity (acceleration/deceleration control)
@@ -427,7 +472,7 @@ static void MX_ADC1_Init(void)
 
   ADC_ChannelConfTypeDef sConfig;
 
-    /**Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion) 
+    /**Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
     */
   hadc1.Instance = ADC1;
   hadc1.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV2;
@@ -445,7 +490,7 @@ static void MX_ADC1_Init(void)
     Error_Handler();
   }
 
-    /**Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time. 
+    /**Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
     */
   sConfig.Channel = ADC_CHANNEL_10;
   sConfig.Rank = 1;
@@ -463,7 +508,7 @@ static void MX_ADC2_Init(void)
 
   ADC_ChannelConfTypeDef sConfig;
 
-    /**Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion) 
+    /**Configure the global features of the ADC (Clock, Resolution, Data Alignment and number of conversion)
     */
   hadc2.Instance = ADC2;
   hadc2.Init.ClockPrescaler = ADC_CLOCK_SYNC_PCLK_DIV2;
@@ -481,7 +526,7 @@ static void MX_ADC2_Init(void)
     Error_Handler();
   }
 
-    /**Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time. 
+    /**Configure for the selected ADC regular channel its corresponding rank in the sequencer and its sample time.
     */
   sConfig.Channel = ADC_CHANNEL_11;
   sConfig.Rank = 1;
@@ -689,9 +734,9 @@ static void MX_TIM8_Init(void)
 
 }
 
-/** Configure pins as 
-        * Analog 
-        * Input 
+/** Configure pins as
+        * Analog
+        * Input
         * Output
         * EVENT_OUT
         * EXTI
@@ -727,6 +772,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
+  /*Configure GPIO pin : Fw_Rev_switch_Pin */
+  GPIO_InitStruct.Pin = Fw_Rev_switch_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(Fw_Rev_switch_GPIO_Port, &GPIO_InitStruct);
+
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOD, LD4_Pin|LD3_Pin|LD5_Pin|LD6_Pin, GPIO_PIN_RESET);
 
@@ -748,7 +799,7 @@ void Error_Handler(void)
   while(1)
   {
   }
-  /* USER CODE END Error_Handler */ 
+  /* USER CODE END Error_Handler */
 }
 
 #ifdef USE_FULL_ASSERT
@@ -773,10 +824,10 @@ void assert_failed(uint8_t* file, uint32_t line)
 
 /**
   * @}
-  */ 
+  */
 
 /**
   * @}
-*/ 
+*/
 
 /************************ (C) COPYRIGHT STMicroelectronics *****END OF FILE****/

@@ -67,6 +67,8 @@
 #define Hall3_GPIO_Port GPIOD
 #define SWO_Pin GPIO_PIN_3
 #define SWO_GPIO_Port GPIOB
+#define Fw_Rev_switch_Pin GPIO_PIN_0
+#define Fw_Rev_switch_GPIO_Port GPIOE
 /* USER CODE BEGIN Private defines */
 
 /* USER CODE END Private defines */
